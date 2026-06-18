@@ -169,6 +169,7 @@
   <button class="tab" onclick="switchTab('log')">History</button>
   <button class="tab" onclick="switchTab('claude')">Claude</button>
   <button class="tab" onclick="switchTab('add')">+ Add</button>
+  <button class="tab" onclick="switchTab('data')">Backup</button>
 </div>
 
 <!-- HABITS TAB -->
@@ -219,6 +220,34 @@
   <p style="font-size:0.78rem;color:var(--muted);line-height:1.6;">
     <strong style="color:var(--text);">Voice tip:</strong> On your iPhone, open claude.ai in Safari, paste the prompt, then tap the microphone icon to switch to voice. Claude will know your full habit history.
   </p>
+</div>
+
+<!-- BACKUP TAB -->
+<div class="page" id="page-data">
+  <h2>Backup &amp; Restore</h2>
+
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.25rem;margin-bottom:1rem;">
+    <div style="font-size:0.95rem;font-weight:600;margin-bottom:0.4rem;">Export Data</div>
+    <div style="font-size:0.82rem;color:var(--muted);margin-bottom:1rem;line-height:1.5;">Downloads a file with all your habits and tracking history. Save it to iCloud, email it to yourself, or use it to sync to another device.</div>
+    <button class="btn btn-claude btn-full" onclick="exportData()">Download Backup File</button>
+  </div>
+
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.25rem;margin-bottom:1rem;">
+    <div style="font-size:0.95rem;font-weight:600;margin-bottom:0.4rem;">Import / Restore</div>
+    <div style="font-size:0.82rem;color:var(--muted);margin-bottom:1rem;line-height:1.5;">Load a backup file to restore your data. This will <strong style="color:var(--loss);">replace</strong> all current data on this device with the file's data.</div>
+    <label class="btn btn-outline btn-full" style="display:block;text-align:center;cursor:pointer;">
+      Choose Backup File
+      <input type="file" accept=".json" onchange="importData(event)" style="display:none;" />
+    </label>
+  </div>
+
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.25rem;">
+    <div style="font-size:0.95rem;font-weight:600;margin-bottom:0.4rem;">Sync Between Devices</div>
+    <div style="font-size:0.82rem;color:var(--muted);line-height:1.6;">
+      <strong style="color:var(--text);">Desktop → iPhone:</strong> Export on desktop → AirDrop or save to iCloud Drive → open on iPhone → Import<br/><br/>
+      <strong style="color:var(--text);">iPhone → Desktop:</strong> Export on iPhone (saves to Files app) → move to desktop → Import
+    </div>
+  </div>
 </div>
 
 <!-- ADD HABIT TAB -->
@@ -321,7 +350,7 @@
 
   function switchTab(tab) {
     document.querySelectorAll('.tab').forEach((t, i) => {
-      t.classList.toggle('active', ['habits','log','claude','add'][i] === tab);
+      t.classList.toggle('active', ['habits','log','claude','add','data'][i] === tab);
     });
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.getElementById(`page-${tab}`).classList.add('active');
@@ -504,6 +533,49 @@
     showToast('Habit added. Now commit to it.', 'win');
     switchTab('habits');
     renderHabits();
+  }
+
+  // ─── Export / Import ─────────────────────────────────────────────
+  function exportData() {
+    const data = {
+      version: 1,
+      exported_at: new Date().toISOString(),
+      habits: loadHabits(),
+      tracking: loadTracking(),
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const now = new Date();
+    const stamp = now.toISOString().slice(0, 19).replace('T', '_').replace(/:/g, '-');
+    a.href = url;
+    a.download = `accountability-backup-${stamp}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Backup downloaded. Keep it safe.', 'win');
+  }
+
+  function importData(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (!data.habits || !data.tracking) throw new Error('Invalid file');
+        if (!confirm(`This will replace all your current data with the backup from ${data.exported_at ? new Date(data.exported_at).toLocaleDateString() : 'this file'}. Are you sure?`)) return;
+        saveHabits(data.habits);
+        saveTracking(data.tracking);
+        renderHabits();
+        updateNavStats();
+        showToast('Data restored successfully.', 'win');
+        switchTab('habits');
+      } catch {
+        showToast('Invalid backup file. Please try again.', 'loss');
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
   }
 
   // ─── Toast ────────────────────────────────────────────────────────
