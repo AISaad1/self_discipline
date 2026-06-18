@@ -546,9 +546,10 @@
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    const date = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const stamp = now.toISOString().slice(0, 19).replace('T', '_').replace(/:/g, '-');
     a.href = url;
-    a.download = `accountability-backup-${date}.json`;
+    a.download = `accountability-backup-${stamp}.json`;
     a.click();
     URL.revokeObjectURL(url);
     showToast('Backup downloaded. Keep it safe.', 'win');
