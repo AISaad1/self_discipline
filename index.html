@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Accountability" />
+  <title>Saad's Accountability Tool</title>
+  <style>
+    :root {
+      --bg: #0f0f13;
+      --surface: #1a1a24;
+      --surface2: #22222f;
+      --border: #2e2e40;
+      --accent: #6c63ff;
+      --accent2: #a78bfa;
+      --win: #22c55e;
+      --loss: #ef4444;
+      --text: #e8e8f0;
+      --muted: #8888aa;
+      --warn: #f59e0b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, 'Segoe UI', sans-serif; min-height: 100vh; padding-bottom: env(safe-area-inset-bottom); }
+
+    /* Nav */
+    nav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 1.25rem;
+      padding-top: calc(1rem + env(safe-area-inset-top));
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 50;
+    }
+    nav h1 { font-size: 1.1rem; font-weight: 700; }
+    nav h1 span { color: var(--accent2); }
+    .nav-stats { display: flex; gap: 0.5rem; }
+    .badge { padding: 0.25rem 0.7rem; border-radius: 99px; font-size: 0.75rem; font-weight: 600; }
+    .badge-win { background: rgba(34,197,94,0.15); color: var(--win); }
+    .badge-loss { background: rgba(239,68,68,0.15); color: var(--loss); }
+
+    /* Tabs */
+    .tabs { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); }
+    .tab { flex: 1; padding: 0.75rem; text-align: center; font-size: 0.82rem; font-weight: 600; color: var(--muted); border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; }
+    .tab.active { color: var(--accent2); border-bottom-color: var(--accent2); }
+
+    /* Pages */
+    .page { display: none; padding: 1.25rem; }
+    .page.active { display: block; }
+
+    /* Cards */
+    .habit-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 0.75rem;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .habit-card.selected { border-color: var(--accent); background: var(--surface2); }
+    .habit-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.6rem; }
+    .habit-name { font-size: 1rem; font-weight: 600; line-height: 1.3; }
+    .habit-category { font-size: 0.7rem; color: var(--muted); background: var(--surface2); padding: 0.2rem 0.5rem; border-radius: 99px; white-space: nowrap; margin-left: 0.5rem; flex-shrink: 0; }
+    .habit-stats { display: flex; gap: 1rem; }
+    .stat { display: flex; flex-direction: column; align-items: center; }
+    .stat-val { font-size: 1.1rem; font-weight: 700; }
+    .stat-lbl { font-size: 0.68rem; color: var(--muted); }
+    .s-wins .stat-val { color: var(--win); }
+    .s-losses .stat-val { color: var(--loss); }
+    .s-streak .stat-val { color: var(--warn); }
+    .progress-bar { margin-top: 0.6rem; height: 4px; background: var(--border); border-radius: 99px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--win)); border-radius: 99px; }
+
+    /* Interruption panel */
+    .interrupt-panel {
+      background: linear-gradient(135deg, rgba(108,99,255,0.1), rgba(239,68,68,0.07));
+      border: 1px solid rgba(108,99,255,0.3);
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin-bottom: 0.75rem;
+      display: none;
+    }
+    .interrupt-panel.visible { display: block; }
+    .interrupt-label { font-size: 0.72rem; color: var(--accent2); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.75rem; font-weight: 700; }
+    .interrupt-msg { font-size: 1rem; line-height: 1.6; font-style: italic; border-left: 3px solid var(--accent); padding-left: 0.9rem; margin-bottom: 1rem; }
+    .section-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.4rem; margin-top: 0.75rem; font-weight: 600; }
+    .clist { list-style: none; }
+    .clist li { font-size: 0.85rem; padding: 0.2rem 0; }
+    .clist.bad li::before { content: "⚠ "; color: var(--loss); }
+    .clist.good li::before { content: "✓ "; color: var(--win); }
+
+    .action-row { display: flex; gap: 0.6rem; margin-top: 1rem; flex-wrap: wrap; }
+    .btn { padding: 0.65rem 1.1rem; border-radius: 10px; border: none; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: opacity 0.15s, transform 0.1s; }
+    .btn:active { opacity: 0.8; transform: scale(0.97); }
+    .btn-win { background: var(--win); color: #fff; }
+    .btn-loss { background: var(--loss); color: #fff; }
+    .btn-claude { background: var(--accent); color: #fff; }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-full { width: 100%; margin-top: 0.5rem; }
+    .btn-sm { padding: 0.5rem 0.9rem; font-size: 0.8rem; }
+
+    /* Log page */
+    .log-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.65rem 0; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
+    .log-item:last-child { border-bottom: none; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .dot.win { background: var(--win); }
+    .dot.loss { background: var(--loss); }
+    .log-name { flex: 1; }
+    .log-date { color: var(--muted); font-size: 0.75rem; }
+    .empty { color: var(--muted); font-size: 0.9rem; text-align: center; padding: 2rem 0; }
+
+    /* Claude page */
+    .claude-page textarea {
+      width: 100%; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 10px; color: var(--text); padding: 0.85rem;
+      font-size: 0.9rem; font-family: inherit; resize: none; min-height: 100px;
+    }
+    .claude-page textarea:focus { outline: none; border-color: var(--accent); }
+    .context-box {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 0.85rem; font-size: 0.78rem;
+      color: var(--muted); white-space: pre-wrap; max-height: 200px;
+      overflow-y: auto; line-height: 1.5; display: none; margin-top: 0.75rem;
+    }
+    .context-box.visible { display: block; }
+
+    /* Add habit form */
+    .form-section { margin-bottom: 1rem; }
+    .form-section label { font-size: 0.78rem; color: var(--muted); display: block; margin-bottom: 0.3rem; }
+    .form-section input, .form-section textarea, .form-section select {
+      width: 100%; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); padding: 0.6rem 0.85rem;
+      font-size: 0.9rem; font-family: inherit;
+    }
+    .form-section input:focus, .form-section textarea:focus { outline: none; border-color: var(--accent); }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: calc(1.5rem + env(safe-area-inset-bottom)); left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 0.85rem 1.5rem;
+      font-size: 0.88rem; font-weight: 500; white-space: nowrap;
+      opacity: 0; transition: all 0.3s ease; z-index: 200;
+      max-width: calc(100vw - 2rem); text-align: center;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    .toast.win { border-color: var(--win); }
+    .toast.loss { border-color: var(--loss); }
+
+    h2 { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem; font-weight: 700; }
+    .divider { height: 1px; background: var(--border); margin: 1.25rem 0; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <h1>Saad's <span>Accountability</span></h1>
+  <div class="nav-stats" id="navStats">
+    <span class="badge badge-win" id="totalWinsBadge">0 W</span>
+    <span class="badge badge-loss" id="totalLossesBadge">0 L</span>
+  </div>
+</nav>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('habits')">Habits</button>
+  <button class="tab" onclick="switchTab('log')">History</button>
+  <button class="tab" onclick="switchTab('claude')">Claude</button>
+  <button class="tab" onclick="switchTab('add')">+ Add</button>
+</div>
+
+<!-- HABITS TAB -->
+<div class="page active" id="page-habits">
+  <div class="interrupt-panel" id="interruptPanel">
+    <div class="interrupt-label">⚡ Stop. Read This.</div>
+    <div class="interrupt-msg" id="interruptMsg"></div>
+    <div class="section-label">If you give in right now:</div>
+    <ul class="clist bad" id="shortList"></ul>
+    <div class="section-label">Long term:</div>
+    <ul class="clist bad" id="longList"></ul>
+    <div class="section-label">If you resist right now:</div>
+    <ul class="clist good" id="benefitsList"></ul>
+    <div class="action-row">
+      <button class="btn btn-win" id="winBtn">✓ I Resisted</button>
+      <button class="btn btn-loss" id="lossBtn">✗ I Gave In</button>
+    </div>
+    <button class="btn btn-claude btn-full" onclick="switchTab('claude')">💬 Talk to Claude About This</button>
+  </div>
+
+  <h2>Tap a habit when you're tempted</h2>
+  <div id="habitsGrid"></div>
+</div>
+
+<!-- LOG TAB -->
+<div class="page" id="page-log">
+  <h2>Recent History</h2>
+  <div id="logList"><p class="empty">No entries yet. Log a win or loss from the Habits tab.</p></div>
+</div>
+
+<!-- CLAUDE TAB -->
+<div class="page claude-page" id="page-claude">
+  <h2>Talk to Claude</h2>
+  <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem;line-height:1.6;">
+    This builds a full-context prompt with your habits and stats. Paste it into <strong style="color:var(--text);">claude.ai</strong>, then use voice or text to talk to Claude as your accountability partner.
+  </p>
+  <div class="form-section">
+    <label>What's happening right now? (optional)</label>
+    <textarea id="situationText" placeholder="I'm about to scroll Instagram instead of working... / I haven't worked out in 3 days..."></textarea>
+  </div>
+  <button class="btn btn-claude btn-full" onclick="buildContext()">Build Claude Prompt</button>
+  <div class="context-box" id="contextBox"></div>
+  <div id="contextActions" style="display:none;">
+    <button class="btn btn-outline btn-full btn-sm" style="margin-top:0.5rem;" onclick="copyContext()">Copy to Clipboard</button>
+    <button class="btn btn-outline btn-full btn-sm" style="margin-top:0.4rem;" onclick="openClaude()">Open Claude.ai →</button>
+  </div>
+  <div class="divider"></div>
+  <p style="font-size:0.78rem;color:var(--muted);line-height:1.6;">
+    <strong style="color:var(--text);">Voice tip:</strong> On your iPhone, open claude.ai in Safari, paste the prompt, then tap the microphone icon to switch to voice. Claude will know your full habit history.
+  </p>
+</div>
+
+<!-- ADD HABIT TAB -->
+<div class="page" id="page-add">
+  <h2>Add a New Habit</h2>
+  <div class="form-section"><label>Habit Name *</label><input id="fName" placeholder="e.g. Eating junk food late at night" /></div>
+  <div class="form-section"><label>Category</label>
+    <select id="fCategory">
+      <option>Health</option><option>Time Wasters</option><option>Productivity</option><option>Relationships</option><option>General</option>
+    </select>
+  </div>
+  <div class="form-section"><label>Triggers (comma separated)</label><input id="fTriggers" placeholder="stress, boredom, late nights" /></div>
+  <div class="form-section"><label>Short-term consequences if you give in (one per line)</label><textarea id="fShort" rows="3" placeholder="Feel sluggish next day&#10;Disrupts sleep&#10;Guilt"></textarea></div>
+  <div class="form-section"><label>Long-term consequences (one per line)</label><textarea id="fLong" rows="3" placeholder="Weight gain&#10;Health problems"></textarea></div>
+  <div class="form-section"><label>Benefits of resisting (one per line)</label><textarea id="fBenefits" rows="3" placeholder="More energy&#10;Proud of yourself"></textarea></div>
+  <div class="form-section"><label>Personal interruption message</label><textarea id="fMsg" rows="3" placeholder="Write something direct to yourself that will snap you out of it..."></textarea></div>
+  <button class="btn btn-claude btn-full" onclick="saveHabit()">Save Habit</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ─── Default habits ───────────────────────────────────────────────
+  const DEFAULT_HABITS = [
+    {
+      id: "h1", name: "Scrolling Social Media", category: "Time Wasters",
+      triggers: ["boredom", "stress", "avoiding tasks", "lying in bed"],
+      consequences: {
+        short_term: ["Wastes hours without realizing it", "Kills your mood and energy", "Makes you feel empty and unfulfilled"],
+        long_term: ["Trains your brain to need constant stimulation", "Robs time from your family and goals", "Weakens your attention span"]
+      },
+      benefits_of_resisting: ["More time with your kids and wife", "Mental clarity and calm", "You model discipline for your children"],
+      interruption_message: "Put the phone down, Saad. Your kids will remember a present father, not a distracted one. Every minute you scroll is a minute stolen from who you want to be."
+    },
+    {
+      id: "h2", name: "Skipping Exercise", category: "Health",
+      triggers: ["tired", "busy", "tomorrow mentality", "comfort"],
+      consequences: {
+        short_term: ["Lower energy for the rest of the day", "Guilt and disappointment in yourself", "Breaks the momentum you've built"],
+        long_term: ["Health declines — you won't be strong for your family", "Sets a bad example for your children", "Confidence erodes"]
+      },
+      benefits_of_resisting: ["Energy to play with your kids", "Strong body, strong mind", "Pride that carries through the day"],
+      interruption_message: "Saad — your family needs you healthy and strong. Twenty minutes is all it takes. The man who shows up even when he doesn't feel like it is the man you're becoming. Move."
+    },
+    {
+      id: "h3", name: "Staying Up Too Late", category: "Health",
+      triggers: ["scrolling", "quiet house feeling", "binge watching"],
+      consequences: {
+        short_term: ["Exhausted and irritable the next day", "Less patient with your kids and wife", "Skipping morning routine"],
+        long_term: ["Chronic sleep deprivation destroys health", "Ruins your mornings and momentum", "Less present as a father and husband"]
+      },
+      benefits_of_resisting: ["Wake up rested and ready", "Morning belongs to you — exercise, goals", "Be the calm father your kids need"],
+      interruption_message: "Sleep is not laziness — it's discipline. The best version of you shows up tomorrow only if you rest tonight. Close the screen."
+    },
+    {
+      id: "h4", name: "Procrastinating on Important Tasks", category: "Productivity",
+      triggers: ["feeling overwhelmed", "fear of failure", "unclear next step"],
+      consequences: {
+        short_term: ["Anxiety hanging over you all day", "Tasks pile up and feel heavier", "You can't be fully present"],
+        long_term: ["Goals never get achieved", "Loss of self-trust", "The gap between who you are and who you want to be grows"]
+      },
+      benefits_of_resisting: ["The relief of getting it done", "Builds self-trust and confidence", "Momentum — one done task leads to the next"],
+      interruption_message: "Start for just five minutes, Saad. The hardest part is starting. You are a man of action — not a man of 'I'll do it later.'"
+    }
+  ];
+
+  // ─── Storage ─────────────────────────────────────────────────────
+  function loadHabits() {
+    const stored = localStorage.getItem('sd_habits');
+    return stored ? JSON.parse(stored) : JSON.parse(JSON.stringify(DEFAULT_HABITS));
+  }
+  function saveHabits(habits) { localStorage.setItem('sd_habits', JSON.stringify(habits)); }
+  function loadTracking() {
+    const stored = localStorage.getItem('sd_tracking');
+    return stored ? JSON.parse(stored) : [];
+  }
+  function saveTracking(entries) { localStorage.setItem('sd_tracking', JSON.stringify(entries)); }
+
+  // ─── Stats ────────────────────────────────────────────────────────
+  function getStats() {
+    const tracking = loadTracking();
+    const habits = loadHabits();
+    const stats = {};
+    habits.forEach(h => {
+      const entries = tracking.filter(e => e.habit_id === h.id);
+      const wins = entries.filter(e => e.outcome === 'win').length;
+      const losses = entries.filter(e => e.outcome === 'loss').length;
+      const total = wins + losses;
+      let streak = 0;
+      const sorted = [...entries].sort((a, b) => b.timestamp - a.timestamp);
+      for (const e of sorted) { if (e.outcome === 'win') streak++; else break; }
+      stats[h.id] = { wins, losses, total, win_rate: total > 0 ? Math.round(wins / total * 100) : 0, streak };
+    });
+    return stats;
+  }
+
+  // ─── UI State ─────────────────────────────────────────────────────
+  let selectedHabitId = null;
+  let builtContext = '';
+
+  function switchTab(tab) {
+    document.querySelectorAll('.tab').forEach((t, i) => {
+      t.classList.toggle('active', ['habits','log','claude','add'][i] === tab);
+    });
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById(`page-${tab}`).classList.add('active');
+    if (tab === 'log') renderLog();
+  }
+
+  // ─── Habits ───────────────────────────────────────────────────────
+  function renderHabits() {
+    const habits = loadHabits();
+    const stats = getStats();
+    const grid = document.getElementById('habitsGrid');
+    grid.innerHTML = habits.map(h => {
+      const s = stats[h.id] || {};
+      const pct = s.win_rate || 0;
+      return `<div class="habit-card ${selectedHabitId === h.id ? 'selected' : ''}" onclick="selectHabit('${h.id}')">
+        <div class="habit-header">
+          <div class="habit-name">${h.name}</div>
+          <div class="habit-category">${h.category}</div>
+        </div>
+        <div class="habit-stats">
+          <div class="stat s-wins"><div class="stat-val">${s.wins||0}</div><div class="stat-lbl">Wins</div></div>
+          <div class="stat s-losses"><div class="stat-val">${s.losses||0}</div><div class="stat-lbl">Losses</div></div>
+          <div class="stat s-streak"><div class="stat-val">${s.streak||0}</div><div class="stat-lbl">Streak</div></div>
+          <div class="stat"><div class="stat-val">${pct}%</div><div class="stat-lbl">Win Rate</div></div>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+      </div>`;
+    }).join('');
+  }
+
+  function updateNavStats() {
+    const tracking = loadTracking();
+    const wins = tracking.filter(e => e.outcome === 'win').length;
+    const losses = tracking.filter(e => e.outcome === 'loss').length;
+    document.getElementById('totalWinsBadge').textContent = `${wins} W`;
+    document.getElementById('totalLossesBadge').textContent = `${losses} L`;
+  }
+
+  function selectHabit(habitId) {
+    selectedHabitId = habitId;
+    const habit = loadHabits().find(h => h.id === habitId);
+    if (!habit) return;
+    renderHabits();
+
+    const panel = document.getElementById('interruptPanel');
+    panel.classList.add('visible');
+    document.getElementById('interruptMsg').textContent = habit.interruption_message;
+    document.getElementById('shortList').innerHTML = habit.consequences.short_term.map(c => `<li>${c}</li>`).join('');
+    document.getElementById('longList').innerHTML = habit.consequences.long_term.map(c => `<li>${c}</li>`).join('');
+    document.getElementById('benefitsList').innerHTML = habit.benefits_of_resisting.map(b => `<li>${b}</li>`).join('');
+
+    document.getElementById('winBtn').onclick = () => logOutcome(habitId, 'win');
+    document.getElementById('lossBtn').onclick = () => logOutcome(habitId, 'loss');
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function logOutcome(habitId, outcome) {
+    const tracking = loadTracking();
+    tracking.push({
+      id: Math.random().toString(36).slice(2),
+      habit_id: habitId,
+      outcome,
+      timestamp: Date.now(),
+      date: new Date().toISOString().slice(0, 10)
+    });
+    saveTracking(tracking);
+
+    const msg = outcome === 'win'
+      ? "Win logged. That's discipline. Keep going."
+      : "Loss logged. Reset starts now. One bad moment doesn't define you.";
+    showToast(msg, outcome);
+
+    document.getElementById('interruptPanel').classList.remove('visible');
+    selectedHabitId = null;
+    renderHabits();
+    updateNavStats();
+  }
+
+  // ─── Log ─────────────────────────────────────────────────────────
+  function renderLog() {
+    const tracking = [...loadTracking()].sort((a, b) => b.timestamp - a.timestamp);
+    const habits = loadHabits();
+    const el = document.getElementById('logList');
+    if (!tracking.length) { el.innerHTML = '<p class="empty">No entries yet.</p>'; return; }
+    el.innerHTML = tracking.slice(0, 50).map(e => {
+      const habit = habits.find(h => h.id === e.habit_id);
+      const name = habit ? habit.name : 'Unknown';
+      const d = new Date(e.timestamp);
+      const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return `<div class="log-item">
+        <div class="dot ${e.outcome}"></div>
+        <div class="log-name">${name}</div>
+        <div class="log-date">${label}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // ─── Claude context ───────────────────────────────────────────────
+  function buildContext() {
+    const habits = loadHabits();
+    const stats = getStats();
+    const tracking = loadTracking();
+    const situation = document.getElementById('situationText').value.trim();
+
+    const totalWins = tracking.filter(e => e.outcome === 'win').length;
+    const totalLosses = tracking.filter(e => e.outcome === 'loss').length;
+
+    const lines = [];
+    lines.push("You are my personal accountability partner. My name is Saad.");
+    lines.push("");
+    lines.push("About me: I'm working on becoming a better man — a great father, a loving husband, and someone who lives with honor and discipline.");
+    lines.push(`Today is ${new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' })}.`);
+    lines.push(`My overall record: ${totalWins} wins, ${totalLosses} losses across all habits.`);
+    lines.push("");
+    lines.push("My habits I'm actively working on:");
+
+    habits.forEach(h => {
+      const s = stats[h.id] || {};
+      const marker = h.id === selectedHabitId ? " ← I AM DEALING WITH THIS RIGHT NOW" : "";
+      lines.push(`\n### ${h.name} (${h.category})${marker}`);
+      lines.push(`Record: ${s.wins||0} wins / ${s.losses||0} losses | Win streak: ${s.streak||0}`);
+      lines.push(`Triggers: ${h.triggers.join(', ')}`);
+      lines.push(`Short-term consequences: ${h.consequences.short_term.slice(0,2).join('; ')}`);
+      lines.push(`Long-term consequences: ${h.consequences.long_term.slice(0,2).join('; ')}`);
+      lines.push(`Benefits of resisting: ${h.benefits_of_resisting.slice(0,2).join('; ')}`);
+    });
+
+    lines.push("\n---\n");
+    if (selectedHabitId) {
+      const h = habits.find(x => x.id === selectedHabitId);
+      lines.push(`RIGHT NOW I am being tempted by: ${h ? h.name : 'a habit'}`);
+    }
+    if (situation) lines.push(`Here's what's happening: ${situation}`);
+    lines.push("");
+    lines.push("Please be my accountability partner. Be direct, real, and firm — not a lecture, a real talk. Keep it short and powerful.");
+
+    builtContext = lines.join('\n');
+    const box = document.getElementById('contextBox');
+    box.textContent = builtContext;
+    box.classList.add('visible');
+    document.getElementById('contextActions').style.display = 'block';
+  }
+
+  function copyContext() {
+    navigator.clipboard.writeText(builtContext).then(() => {
+      showToast('Copied! Paste it into Claude.ai.', 'win');
+    }).catch(() => {
+      // Fallback for older browsers
+      const ta = document.createElement('textarea');
+      ta.value = builtContext;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      showToast('Copied! Paste it into Claude.ai.', 'win');
+    });
+  }
+
+  function openClaude() { window.open('https://claude.ai', '_blank'); }
+
+  // ─── Add habit ────────────────────────────────────────────────────
+  function saveHabit() {
+    const name = document.getElementById('fName').value.trim();
+    if (!name) { showToast('Please enter a habit name.', 'loss'); return; }
+    const habits = loadHabits();
+    habits.push({
+      id: 'h' + Math.random().toString(36).slice(2, 10),
+      name,
+      category: document.getElementById('fCategory').value,
+      triggers: document.getElementById('fTriggers').value.split(',').map(s => s.trim()).filter(Boolean),
+      consequences: {
+        short_term: document.getElementById('fShort').value.split('\n').map(s => s.trim()).filter(Boolean),
+        long_term: document.getElementById('fLong').value.split('\n').map(s => s.trim()).filter(Boolean),
+      },
+      benefits_of_resisting: document.getElementById('fBenefits').value.split('\n').map(s => s.trim()).filter(Boolean),
+      interruption_message: document.getElementById('fMsg').value.trim(),
+    });
+    saveHabits(habits);
+    ['fName','fTriggers','fShort','fLong','fBenefits','fMsg'].forEach(id => document.getElementById(id).value = '');
+    showToast('Habit added. Now commit to it.', 'win');
+    switchTab('habits');
+    renderHabits();
+  }
+
+  // ─── Toast ────────────────────────────────────────────────────────
+  function showToast(msg, type) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = `toast ${type} show`;
+    setTimeout(() => t.classList.remove('show'), 3500);
+  }
+
+  // ─── Init ─────────────────────────────────────────────────────────
+  // Seed default habits if first visit
+  if (!localStorage.getItem('sd_habits')) saveHabits(DEFAULT_HABITS);
+  renderHabits();
+  updateNavStats();
+</script>
+</body>
+</html>

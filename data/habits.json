@@ -1,0 +1,120 @@
+{
+  "habits": [
+    {
+      "id": "h1",
+      "name": "Scrolling Social Media",
+      "category": "Time Wasters",
+      "description": "Mindlessly scrolling through social media feeds instead of being present",
+      "triggers": ["boredom", "stress", "avoiding tasks", "lying in bed"],
+      "consequences": {
+        "short_term": [
+          "Wastes hours without realizing it",
+          "Kills your mood and energy",
+          "Makes you feel empty and unfulfilled",
+          "Puts you in comparison mode with others"
+        ],
+        "long_term": [
+          "Stunts your personal growth",
+          "Trains your brain to need constant stimulation",
+          "Robs time from your family and goals",
+          "Weakens your attention span and focus"
+        ]
+      },
+      "benefits_of_resisting": [
+        "More time with your kids and wife",
+        "Mental clarity and calm",
+        "You model discipline for your children",
+        "Progress toward your real goals"
+      ],
+      "interruption_message": "Put the phone down, Saad. Your kids will remember a present father, not a distracted one. Every minute you scroll is a minute stolen from who you want to be.",
+      "active": true
+    },
+    {
+      "id": "h2",
+      "name": "Skipping Exercise",
+      "category": "Health",
+      "description": "Making excuses to avoid working out",
+      "triggers": ["tired", "busy", "tomorrow mentality", "comfort"],
+      "consequences": {
+        "short_term": [
+          "Lower energy for the rest of the day",
+          "Guilt and disappointment in yourself",
+          "Breaks the momentum you've built",
+          "Signals to yourself that you can't be trusted"
+        ],
+        "long_term": [
+          "Health declines — you won't be strong for your family",
+          "Confidence erodes",
+          "Sets a bad example for your children",
+          "The gap between who you are and who you want to be grows wider"
+        ]
+      },
+      "benefits_of_resisting": [
+        "Energy and vitality to play with your kids",
+        "Strong body, strong mind",
+        "Pride and confidence that carries through the day",
+        "Long healthy life with your family"
+      ],
+      "interruption_message": "Saad — your family needs you healthy and strong. Twenty minutes is all it takes. The man who shows up even when he doesn't feel like it is the man you're becoming. Move.",
+      "active": true
+    },
+    {
+      "id": "h3",
+      "name": "Staying Up Too Late",
+      "category": "Health",
+      "description": "Staying awake past a reasonable hour, sacrificing sleep for screens or distraction",
+      "triggers": ["scrolling", "avoiding next day", "quiet house feeling", "binge watching"],
+      "consequences": {
+        "short_term": [
+          "Exhausted and irritable the next day",
+          "Less patient with your kids and wife",
+          "Brain fog and poor decisions",
+          "Skipping morning routine"
+        ],
+        "long_term": [
+          "Chronic sleep deprivation destroys health",
+          "Ruins your mornings and momentum",
+          "Less present as a father and husband",
+          "Weakens your immune system and mental health"
+        ]
+      },
+      "benefits_of_resisting": [
+        "Wake up rested and ready",
+        "Morning belongs to you — exercise, prayer, goals",
+        "Be the calm, patient father your kids need",
+        "Your best decisions come from a rested mind"
+      ],
+      "interruption_message": "Saad, sleep is not laziness — it's discipline. The best version of you shows up tomorrow only if you rest tonight. Your family deserves the rested you. Close the screen.",
+      "active": true
+    },
+    {
+      "id": "h4",
+      "name": "Procrastinating on Important Tasks",
+      "category": "Productivity",
+      "description": "Delaying important work or responsibilities by doing easier, less meaningful things",
+      "triggers": ["feeling overwhelmed", "fear of failure", "unclear next step", "low energy"],
+      "consequences": {
+        "short_term": [
+          "Anxiety and guilt hanging over you all day",
+          "Tasks pile up and feel heavier",
+          "Missed opportunities and deadlines",
+          "You can't be fully present because the task haunts you"
+        ],
+        "long_term": [
+          "Goals never get achieved",
+          "Financial and career consequences",
+          "Loss of self-trust — you stop believing you'll follow through",
+          "Your family suffers when you don't step up"
+        ]
+      },
+      "benefits_of_resisting": [
+        "The relief of getting it done",
+        "Builds self-trust and confidence",
+        "Momentum — one done task leads to the next",
+        "Your family sees a man who handles his responsibilities"
+      ],
+      "interruption_message": "Start for just five minutes, Saad. The hardest part is starting. You are a man of action — not a man of 'I'll do it later.' The life you want is built one completed task at a time.",
+      "active": true
+    }
+  ]
+}
