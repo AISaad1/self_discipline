@@ -8,6 +8,32 @@
   <meta name="apple-mobile-web-app-title" content="Accountability" />
   <title>Saad's Accountability Tool</title>
   <style>
+    /* PIN Lock */
+    #pinLock {
+      position: fixed; inset: 0; background: var(--bg);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 999; padding: 2rem;
+    }
+    #pinLock h2 { font-size: 1.2rem; margin-bottom: 0.5rem; color: var(--text); }
+    #pinLock p { font-size: 0.85rem; color: var(--muted); margin-bottom: 2rem; text-align: center; }
+    .pin-dots { display: flex; gap: 1rem; margin-bottom: 2rem; }
+    .pin-dot { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--border); background: transparent; transition: background 0.15s; }
+    .pin-dot.filled { background: var(--accent2); border-color: var(--accent2); }
+    .pin-dot.error { background: var(--loss); border-color: var(--loss); }
+    .pin-keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; width: 100%; max-width: 280px; }
+    .pin-key {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 1.1rem; font-size: 1.3rem; font-weight: 600;
+      color: var(--text); cursor: pointer; text-align: center;
+      transition: background 0.15s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .pin-key:active { background: var(--surface2); transform: scale(0.95); }
+    .pin-key.del { font-size: 1rem; color: var(--muted); }
+    .pin-key.empty { visibility: hidden; }
+    .pin-error { color: var(--loss); font-size: 0.82rem; margin-top: -1rem; margin-bottom: 1rem; min-height: 1.2em; text-align: center; }
+  </style>
+  <style>
     :root {
       --bg: #0f0f13;
       --surface: #1a1a24;
@@ -156,6 +182,33 @@
 </head>
 <body>
 
+<!-- PIN LOCK SCREEN -->
+<div id="pinLock">
+  <h2 id="pinTitle">Enter PIN</h2>
+  <p id="pinSubtitle">Enter your 4-digit PIN to access your accountability tool.</p>
+  <div class="pin-dots">
+    <div class="pin-dot" id="pd0"></div>
+    <div class="pin-dot" id="pd1"></div>
+    <div class="pin-dot" id="pd2"></div>
+    <div class="pin-dot" id="pd3"></div>
+  </div>
+  <div class="pin-error" id="pinError"></div>
+  <div class="pin-keypad">
+    <button class="pin-key" onclick="pinPress('1')">1</button>
+    <button class="pin-key" onclick="pinPress('2')">2</button>
+    <button class="pin-key" onclick="pinPress('3')">3</button>
+    <button class="pin-key" onclick="pinPress('4')">4</button>
+    <button class="pin-key" onclick="pinPress('5')">5</button>
+    <button class="pin-key" onclick="pinPress('6')">6</button>
+    <button class="pin-key" onclick="pinPress('7')">7</button>
+    <button class="pin-key" onclick="pinPress('8')">8</button>
+    <button class="pin-key" onclick="pinPress('9')">9</button>
+    <button class="pin-key empty"></button>
+    <button class="pin-key" onclick="pinPress('0')">0</button>
+    <button class="pin-key del" onclick="pinBackspace()">⌫</button>
+  </div>
+</div>
+
 <nav>
   <h1>Saad's <span>Accountability</span></h1>
   <div class="nav-stats" id="navStats">
@@ -239,6 +292,12 @@
       Choose Backup File
       <input type="file" accept=".json" onchange="importData(event)" style="display:none;" />
     </label>
+  </div>
+
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.25rem;margin-bottom:1rem;">
+    <div style="font-size:0.95rem;font-weight:600;margin-bottom:0.4rem;">Change PIN</div>
+    <div style="font-size:0.82rem;color:var(--muted);margin-bottom:1rem;line-height:1.5;">Update your 4-digit PIN. You'll be asked to enter and confirm a new one.</div>
+    <button class="btn btn-outline btn-full" onclick="changePin()">Change PIN</button>
   </div>
 
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.25rem;">
@@ -586,11 +645,99 @@
     setTimeout(() => t.classList.remove('show'), 3500);
   }
 
+  // ─── PIN Lock ─────────────────────────────────────────────────────
+  let pinBuffer = '';
+  let pinMode = 'enter'; // 'enter' | 'set' | 'confirm'
+  let pinConfirmBuffer = '';
+
+  function pinPress(digit) {
+    if (pinBuffer.length >= 4) return;
+    pinBuffer += digit;
+    updatePinDots(pinBuffer.length, false);
+    if (pinBuffer.length === 4) setTimeout(() => handlePinComplete(), 150);
+  }
+
+  function pinBackspace() {
+    if (pinBuffer.length === 0) return;
+    pinBuffer = pinBuffer.slice(0, -1);
+    updatePinDots(pinBuffer.length, false);
+    document.getElementById('pinError').textContent = '';
+  }
+
+  function updatePinDots(count, error) {
+    for (let i = 0; i < 4; i++) {
+      const dot = document.getElementById(`pd${i}`);
+      dot.classList.toggle('filled', i < count && !error);
+      dot.classList.toggle('error', i < count && error);
+    }
+  }
+
+  function handlePinComplete() {
+    const stored = localStorage.getItem('sd_pin');
+
+    if (pinMode === 'set') {
+      pinConfirmBuffer = pinBuffer;
+      pinBuffer = '';
+      updatePinDots(0, false);
+      document.getElementById('pinTitle').textContent = 'Confirm PIN';
+      document.getElementById('pinSubtitle').textContent = 'Enter the same PIN again to confirm.';
+      pinMode = 'confirm';
+      return;
+    }
+
+    if (pinMode === 'confirm') {
+      if (pinBuffer === pinConfirmBuffer) {
+        localStorage.setItem('sd_pin', pinBuffer);
+        document.getElementById('pinLock').style.display = 'none';
+        showToast('PIN set. App is now protected.', 'win');
+      } else {
+        updatePinDots(4, true);
+        document.getElementById('pinError').textContent = "PINs don't match. Try again.";
+        setTimeout(() => { pinBuffer = ''; pinConfirmBuffer = ''; updatePinDots(0, false); pinMode = 'set'; document.getElementById('pinTitle').textContent = 'Set a PIN'; document.getElementById('pinSubtitle').textContent = 'Choose a 4-digit PIN to protect your app.'; }, 1000);
+      }
+      return;
+    }
+
+    // enter mode
+    if (pinBuffer === stored) {
+      document.getElementById('pinLock').style.display = 'none';
+    } else {
+      updatePinDots(4, true);
+      document.getElementById('pinError').textContent = 'Incorrect PIN. Try again.';
+      setTimeout(() => { pinBuffer = ''; updatePinDots(0, false); }, 1000);
+    }
+  }
+
+  function initPin() {
+    const stored = localStorage.getItem('sd_pin');
+    if (!stored) {
+      pinMode = 'set';
+      document.getElementById('pinTitle').textContent = 'Set a PIN';
+      document.getElementById('pinSubtitle').textContent = 'Choose a 4-digit PIN to protect your app.';
+    } else {
+      pinMode = 'enter';
+      document.getElementById('pinTitle').textContent = 'Enter PIN';
+      document.getElementById('pinSubtitle').textContent = 'Enter your 4-digit PIN to access your accountability tool.';
+    }
+  }
+
+  function changePin() {
+    pinBuffer = '';
+    pinConfirmBuffer = '';
+    pinMode = 'set';
+    document.getElementById('pinTitle').textContent = 'Set New PIN';
+    document.getElementById('pinSubtitle').textContent = 'Choose a new 4-digit PIN.';
+    document.getElementById('pinError').textContent = '';
+    updatePinDots(0, false);
+    document.getElementById('pinLock').style.display = 'flex';
+  }
+
   // ─── Init ─────────────────────────────────────────────────────────
   // Seed default habits if first visit
   if (!localStorage.getItem('sd_habits')) saveHabits(DEFAULT_HABITS);
   renderHabits();
   updateNavStats();
+  initPin();
 </script>
 </body>
 </html>
