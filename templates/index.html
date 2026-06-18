@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Saad's Accountability Tool</title>
+  <style>
+    :root {
+      --bg: #0f0f13;
+      --surface: #1a1a24;
+      --surface2: #22222f;
+      --border: #2e2e40;
+      --accent: #6c63ff;
+      --accent2: #a78bfa;
+      --win: #22c55e;
+      --loss: #ef4444;
+      --text: #e8e8f0;
+      --muted: #8888aa;
+      --warn: #f59e0b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+
+    header {
+      padding: 1.5rem 2rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--surface);
+    }
+    header h1 { font-size: 1.3rem; font-weight: 700; letter-spacing: 0.02em; }
+    header h1 span { color: var(--accent2); }
+    .overall-badge {
+      display: flex; gap: 1rem; align-items: center;
+    }
+    .badge {
+      padding: 0.3rem 0.9rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    .badge-win { background: rgba(34,197,94,0.15); color: var(--win); }
+    .badge-loss { background: rgba(239,68,68,0.15); color: var(--loss); }
+    .badge-neutral { background: rgba(108,99,255,0.15); color: var(--accent2); }
+
+    .layout { display: grid; grid-template-columns: 1fr 340px; gap: 0; min-height: calc(100vh - 65px); }
+
+    .main { padding: 2rem; overflow-y: auto; }
+    .sidebar { background: var(--surface); border-left: 1px solid var(--border); padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
+
+    h2 { font-size: 1rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem; }
+
+    /* Habit cards */
+    .habits-grid { display: grid; gap: 1rem; }
+    .habit-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      cursor: pointer;
+      transition: border-color 0.2s, transform 0.1s;
+      position: relative;
+    }
+    .habit-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+    .habit-card.selected { border-color: var(--accent); background: var(--surface2); }
+    .habit-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 0.75rem; }
+    .habit-name { font-size: 1.05rem; font-weight: 600; }
+    .habit-category { font-size: 0.75rem; color: var(--muted); background: var(--surface2); padding: 0.2rem 0.6rem; border-radius: 99px; }
+    .habit-stats { display: flex; gap: 1rem; font-size: 0.82rem; }
+    .stat-item { display: flex; flex-direction: column; align-items: center; }
+    .stat-value { font-size: 1.2rem; font-weight: 700; }
+    .stat-label { color: var(--muted); font-size: 0.72rem; }
+    .stat-wins .stat-value { color: var(--win); }
+    .stat-losses .stat-value { color: var(--loss); }
+    .stat-streak .stat-value { color: var(--warn); }
+    .progress-bar { margin-top: 0.75rem; height: 5px; background: var(--border); border-radius: 99px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--win)); border-radius: 99px; transition: width 0.5s ease; }
+
+    /* Interruption panel */
+    .interruption-panel {
+      background: linear-gradient(135deg, rgba(108,99,255,0.12), rgba(239,68,68,0.08));
+      border: 1px solid rgba(108,99,255,0.3);
+      border-radius: 12px;
+      padding: 1.5rem;
+      display: none;
+    }
+    .interruption-panel.visible { display: block; }
+    .interruption-panel h3 { color: var(--accent2); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem; }
+    .interruption-message {
+      font-size: 1.05rem;
+      line-height: 1.6;
+      font-style: italic;
+      color: var(--text);
+      margin-bottom: 1.25rem;
+      border-left: 3px solid var(--accent);
+      padding-left: 1rem;
+    }
+    .consequences { margin-bottom: 1rem; }
+    .consequences h4 { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem; }
+    .consequence-list { list-style: none; }
+    .consequence-list li { font-size: 0.85rem; padding: 0.25rem 0; color: var(--text); }
+    .consequence-list li::before { content: "⚠ "; color: var(--loss); }
+    .benefits-list li::before { content: "✓ "; color: var(--win); }
+
+    .action-buttons { display: flex; gap: 0.75rem; margin-top: 1rem; flex-wrap: wrap; }
+    .btn {
+      padding: 0.6rem 1.2rem;
+      border-radius: 8px;
+      border: none;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .btn:hover { opacity: 0.85; transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn-win { background: var(--win); color: #fff; }
+    .btn-loss { background: var(--loss); color: #fff; }
+    .btn-claude { background: var(--accent); color: #fff; }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.78rem; }
+
+    /* Sidebar */
+    .sidebar-section { }
+    .sidebar-section h2 { font-size: 0.75rem; }
+
+    .checkin-area textarea {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 0.75rem;
+      font-size: 0.85rem;
+      font-family: inherit;
+      resize: vertical;
+      min-height: 80px;
+      margin-bottom: 0.5rem;
+    }
+    .checkin-area textarea:focus { outline: none; border-color: var(--accent); }
+
+    .context-output {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+      max-height: 180px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      line-height: 1.5;
+      display: none;
+    }
+    .context-output.visible { display: block; }
+
+    .toast {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.5rem;
+      font-size: 0.9rem;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s ease;
+      z-index: 100;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.win { border-color: var(--win); }
+    .toast.loss { border-color: var(--loss); }
+
+    /* Recent log */
+    .log-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.6rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.82rem;
+    }
+    .log-item:last-child { border-bottom: none; }
+    .log-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .log-dot.win { background: var(--win); }
+    .log-dot.loss { background: var(--loss); }
+    .log-name { flex: 1; }
+    .log-date { color: var(--muted); font-size: 0.75rem; }
+
+    .add-habit-form { display: none; }
+    .add-habit-form.visible { display: block; }
+    .form-group { margin-bottom: 0.75rem; }
+    .form-group label { font-size: 0.78rem; color: var(--muted); display: block; margin-bottom: 0.3rem; }
+    .form-group input, .form-group textarea, .form-group select {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 0.5rem 0.75rem;
+      font-size: 0.85rem;
+      font-family: inherit;
+    }
+    .form-group input:focus, .form-group textarea:focus { outline: none; border-color: var(--accent); }
+
+    @media (max-width: 768px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { border-left: none; border-top: 1px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Saad's <span>Accountability</span> Tool</h1>
+  <div class="overall-badge" id="overallBadges">
+    <span class="badge badge-neutral">Loading...</span>
+  </div>
+</header>
+
+<div class="layout">
+  <div class="main">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem;">
+      <h2>Your Habits</h2>
+      <button class="btn btn-outline btn-sm" onclick="toggleAddForm()">+ Add Habit</button>
+    </div>
+
+    <!-- Add habit form -->
+    <div class="add-habit-form surface" id="addHabitForm" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.5rem;margin-bottom:1.5rem;">
+      <h3 style="margin-bottom:1rem;font-size:0.9rem;color:var(--accent2);">Add a New Habit</h3>
+      <div class="form-group"><label>Habit Name</label><input id="fName" placeholder="e.g. Eating junk food late at night" /></div>
+      <div class="form-group"><label>Category</label>
+        <select id="fCategory">
+          <option>Health</option><option>Time Wasters</option><option>Productivity</option><option>Relationships</option><option>General</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Description</label><input id="fDesc" placeholder="Brief description of the habit" /></div>
+      <div class="form-group"><label>Triggers (comma separated)</label><input id="fTriggers" placeholder="stress, boredom, late nights" /></div>
+      <div class="form-group"><label>Short-term Consequences (one per line)</label><textarea id="fShort" rows="3" placeholder="Feel sluggish next day&#10;Disrupts sleep&#10;Guilt"></textarea></div>
+      <div class="form-group"><label>Long-term Consequences (one per line)</label><textarea id="fLong" rows="3" placeholder="Weight gain&#10;Health problems"></textarea></div>
+      <div class="form-group"><label>Benefits of Resisting (one per line)</label><textarea id="fBenefits" rows="3" placeholder="More energy&#10;Proud of yourself"></textarea></div>
+      <div class="form-group"><label>Interruption Message (what should snap you out of it?)</label><textarea id="fMsg" rows="3" placeholder="Write a personal, direct message to yourself..."></textarea></div>
+      <div style="display:flex;gap:0.75rem;">
+        <button class="btn btn-claude" onclick="saveHabit()">Save Habit</button>
+        <button class="btn btn-outline" onclick="toggleAddForm()">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Habits grid -->
+    <div class="habits-grid" id="habitsGrid"></div>
+
+    <!-- Interruption Panel -->
+    <div class="interruption-panel" id="interruptionPanel" style="margin-top:1.5rem;">
+      <h3>⚡ Habit Interrupter — Stop. Read This.</h3>
+      <div class="interruption-message" id="interruptionMsg"></div>
+      <div class="consequences" id="shortTermDiv">
+        <h4>If you give in right now:</h4>
+        <ul class="consequence-list" id="shortTermList"></ul>
+      </div>
+      <div class="consequences" id="longTermDiv">
+        <h4>If this keeps happening:</h4>
+        <ul class="consequence-list" id="longTermList"></ul>
+      </div>
+      <div class="consequences" id="benefitsDiv">
+        <h4>If you resist RIGHT NOW:</h4>
+        <ul class="consequence-list benefits-list" id="benefitsList"></ul>
+      </div>
+      <div class="action-buttons">
+        <button class="btn btn-win" id="winBtn">✓ I Resisted — Log Win</button>
+        <button class="btn btn-loss" id="lossBtn">✗ I Gave In — Log Loss</button>
+        <button class="btn btn-claude" onclick="openClaudeWithContext()">💬 Talk to Claude About This</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <h2>Check In with Claude</h2>
+      <p style="font-size:0.82rem;color:var(--muted);margin-bottom:0.75rem;">
+        Tell Claude what's going on. This builds a full-context prompt you can paste into <strong>claude.ai</strong> — then use voice or text to continue the conversation.
+      </p>
+      <div class="checkin-area">
+        <textarea id="situationText" placeholder="What's happening right now? What are you struggling with?"></textarea>
+        <button class="btn btn-claude" style="width:100%;margin-bottom:0.5rem;" onclick="buildContext()">Build Claude Prompt</button>
+        <button class="btn btn-outline btn-sm" style="width:100%;display:none;" id="copyBtn" onclick="copyContext()">Copy to Clipboard</button>
+        <button class="btn btn-outline btn-sm" style="width:100%;margin-top:0.4rem;display:none;" id="openClaudeBtn" onclick="openClaude()">Open Claude.ai →</button>
+      </div>
+      <div class="context-output" id="contextOutput"></div>
+    </div>
+
+    <div class="sidebar-section" style="margin-top:1rem;">
+      <h2>Recent Log</h2>
+      <div id="recentLog"><p style="font-size:0.82rem;color:var(--muted);">No entries yet.</p></div>
+    </div>
+
+    <div class="sidebar-section" style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);">
+      <p style="font-size:0.75rem;color:var(--muted);line-height:1.6;">
+        <strong style="color:var(--text);">Voice tip:</strong> Open Claude.ai on your phone, use the voice feature, and paste the context prompt to talk to Claude as your accountability partner.
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  let habits = [];
+  let selectedHabitId = null;
+  let builtContext = '';
+
+  async function loadHabits() {
+    const res = await fetch('/api/habits');
+    habits = await res.json();
+    renderHabits();
+    loadStats();
+  }
+
+  async function loadStats() {
+    const res = await fetch('/api/stats');
+    const data = await res.json();
+    const o = data.overall;
+    const pct = o.win_rate;
+    document.getElementById('overallBadges').innerHTML = `
+      <span class="badge badge-win">✓ ${o.total_wins} Wins</span>
+      <span class="badge badge-loss">✗ ${o.total_losses} Losses</span>
+      <span class="badge badge-neutral">${pct}% Win Rate</span>
+    `;
+
+    const recent = data.recent;
+    const logEl = document.getElementById('recentLog');
+    if (!recent.length) { logEl.innerHTML = '<p style="font-size:0.82rem;color:var(--muted);">No entries yet.</p>'; return; }
+    logEl.innerHTML = recent.map(e => {
+      const habit = habits.find(h => h.id === e.habit_id);
+      const name = habit ? habit.name : e.habit_id;
+      const d = new Date(e.timestamp);
+      const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return `<div class="log-item">
+        <div class="log-dot ${e.outcome}"></div>
+        <div class="log-name">${name}</div>
+        <div class="log-date">${label}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderHabits() {
+    const grid = document.getElementById('habitsGrid');
+    grid.innerHTML = habits.map(h => {
+      const s = h.stats || {};
+      const pct = s.win_rate || 0;
+      return `<div class="habit-card ${selectedHabitId === h.id ? 'selected' : ''}" onclick="selectHabit('${h.id}')">
+        <div class="habit-header">
+          <div class="habit-name">${h.name}</div>
+          <div class="habit-category">${h.category}</div>
+        </div>
+        <div class="habit-stats">
+          <div class="stat-item stat-wins"><div class="stat-value">${s.wins || 0}</div><div class="stat-label">Wins</div></div>
+          <div class="stat-item stat-losses"><div class="stat-value">${s.losses || 0}</div><div class="stat-label">Losses</div></div>
+          <div class="stat-item stat-streak"><div class="stat-value">${s.streak || 0}</div><div class="stat-label">Streak</div></div>
+          <div class="stat-item"><div class="stat-value">${pct}%</div><div class="stat-label">Win Rate</div></div>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+      </div>`;
+    }).join('');
+  }
+
+  function selectHabit(habitId) {
+    selectedHabitId = habitId;
+    const habit = habits.find(h => h.id === habitId);
+    if (!habit) return;
+
+    renderHabits();
+
+    const panel = document.getElementById('interruptionPanel');
+    panel.classList.add('visible');
+    document.getElementById('interruptionMsg').textContent = habit.interruption_message;
+
+    const shortList = document.getElementById('shortTermList');
+    shortList.innerHTML = habit.consequences.short_term.map(c => `<li>${c}</li>`).join('');
+
+    const longList = document.getElementById('longTermList');
+    longList.innerHTML = habit.consequences.long_term.map(c => `<li>${c}</li>`).join('');
+
+    const benefitsList = document.getElementById('benefitsList');
+    benefitsList.innerHTML = habit.benefits_of_resisting.map(b => `<li>${b}</li>`).join('');
+
+    document.getElementById('winBtn').onclick = () => logOutcome(habitId, 'win');
+    document.getElementById('lossBtn').onclick = () => logOutcome(habitId, 'loss');
+
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  async function logOutcome(habitId, outcome) {
+    await fetch('/api/tracking', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ habit_id: habitId, outcome })
+    });
+
+    const msg = outcome === 'win'
+      ? "Win logged. That's discipline. Keep going."
+      : "Loss logged. Reset starts now. One bad moment doesn't define you.";
+    showToast(msg, outcome);
+
+    document.getElementById('interruptionPanel').classList.remove('visible');
+    selectedHabitId = null;
+    await loadHabits();
+  }
+
+  async function buildContext() {
+    const situation = document.getElementById('situationText').value;
+    const res = await fetch('/api/claude-context', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ habit_id: selectedHabitId, situation })
+    });
+    const data = await res.json();
+    builtContext = data.context;
+
+    const out = document.getElementById('contextOutput');
+    out.textContent = builtContext;
+    out.classList.add('visible');
+    document.getElementById('copyBtn').style.display = 'block';
+    document.getElementById('openClaudeBtn').style.display = 'block';
+  }
+
+  async function openClaudeWithContext() {
+    await buildContext();
+    copyContext();
+    openClaude();
+  }
+
+  function copyContext() {
+    navigator.clipboard.writeText(builtContext).then(() => {
+      showToast('Prompt copied! Paste it into Claude.ai.', 'win');
+    });
+  }
+
+  function openClaude() {
+    window.open('https://claude.ai', '_blank');
+  }
+
+  function showToast(msg, type) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = `toast ${type} show`;
+    setTimeout(() => t.classList.remove('show'), 3500);
+  }
+
+  function toggleAddForm() {
+    const form = document.getElementById('addHabitForm');
+    form.classList.toggle('visible');
+  }
+
+  async function saveHabit() {
+    const name = document.getElementById('fName').value.trim();
+    if (!name) return alert('Please enter a habit name.');
+    const payload = {
+      name,
+      category: document.getElementById('fCategory').value,
+      description: document.getElementById('fDesc').value,
+      triggers: document.getElementById('fTriggers').value.split(',').map(s => s.trim()).filter(Boolean),
+      short_term_consequences: document.getElementById('fShort').value.split('\n').map(s => s.trim()).filter(Boolean),
+      long_term_consequences: document.getElementById('fLong').value.split('\n').map(s => s.trim()).filter(Boolean),
+      benefits: document.getElementById('fBenefits').value.split('\n').map(s => s.trim()).filter(Boolean),
+      interruption_message: document.getElementById('fMsg').value,
+    };
+    await fetch('/api/habits', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    toggleAddForm();
+    await loadHabits();
+    showToast('Habit added. Now commit to it.', 'win');
+  }
+
+  loadHabits();
+</script>
+</body>
+</html>
