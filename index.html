@@ -228,7 +228,10 @@
 <!-- HABITS TAB -->
 <div class="page active" id="page-habits">
   <div class="interrupt-panel" id="interruptPanel">
-    <div class="interrupt-label">⚡ Stop. Read This.</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">
+      <div class="interrupt-label" style="margin-bottom:0;">⚡ Stop. Read This.</div>
+      <button onclick="closePanel()" style="background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;padding:0 0.25rem;line-height:1;">✕</button>
+    </div>
     <div class="interrupt-msg" id="interruptMsg"></div>
     <div class="section-label">If you give in right now:</div>
     <ul class="clist bad" id="shortList"></ul>
@@ -309,9 +312,10 @@
   </div>
 </div>
 
-<!-- ADD HABIT TAB -->
+<!-- ADD / EDIT HABIT TAB -->
 <div class="page" id="page-add">
-  <h2>Add a New Habit</h2>
+  <h2 id="formTitle">Add a New Habit</h2>
+  <input type="hidden" id="fEditId" value="" />
   <div class="form-section"><label>Habit Name *</label><input id="fName" placeholder="e.g. Eating junk food late at night" /></div>
   <div class="form-section"><label>Category</label>
     <select id="fCategory">
@@ -323,7 +327,9 @@
   <div class="form-section"><label>Long-term consequences (one per line)</label><textarea id="fLong" rows="3" placeholder="Weight gain&#10;Health problems"></textarea></div>
   <div class="form-section"><label>Benefits of resisting (one per line)</label><textarea id="fBenefits" rows="3" placeholder="More energy&#10;Proud of yourself"></textarea></div>
   <div class="form-section"><label>Personal interruption message</label><textarea id="fMsg" rows="3" placeholder="Write something direct to yourself that will snap you out of it..."></textarea></div>
-  <button class="btn btn-claude btn-full" onclick="saveHabit()">Save Habit</button>
+  <button class="btn btn-claude btn-full" id="fSaveBtn" onclick="saveHabit()">Save Habit</button>
+  <button class="btn btn-outline btn-full" id="fCancelBtn" style="display:none;margin-top:0.5rem;" onclick="cancelEdit()">Cancel</button>
+  <button class="btn btn-full" id="fDeleteBtn" style="display:none;margin-top:0.5rem;background:rgba(239,68,68,0.15);color:var(--loss);border:1px solid var(--loss);" onclick="deleteHabit()">Delete This Habit</button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -427,7 +433,10 @@
       return `<div class="habit-card ${selectedHabitId === h.id ? 'selected' : ''}" onclick="selectHabit('${h.id}')">
         <div class="habit-header">
           <div class="habit-name">${h.name}</div>
-          <div class="habit-category">${h.category}</div>
+          <div style="display:flex;align-items:center;gap:0.4rem;flex-shrink:0;">
+            <div class="habit-category">${h.category}</div>
+            <button onclick="event.stopPropagation();editHabit('${h.id}')" style="background:none;border:none;color:var(--muted);font-size:0.8rem;cursor:pointer;padding:0.1rem 0.3rem;border-radius:4px;" title="Edit">✏️</button>
+          </div>
         </div>
         <div class="habit-stats">
           <div class="stat s-wins"><div class="stat-val">${s.wins||0}</div><div class="stat-lbl">Wins</div></div>
@@ -464,6 +473,12 @@
     document.getElementById('winBtn').onclick = () => logOutcome(habitId, 'win');
     document.getElementById('lossBtn').onclick = () => logOutcome(habitId, 'loss');
     panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function closePanel() {
+    document.getElementById('interruptPanel').classList.remove('visible');
+    selectedHabitId = null;
+    renderHabits();
   }
 
   function logOutcome(habitId, outcome) {
@@ -571,12 +586,54 @@
   function openClaude() { window.open('https://claude.ai', '_blank'); }
 
   // ─── Add habit ────────────────────────────────────────────────────
+  function editHabit(habitId) {
+    const habit = loadHabits().find(h => h.id === habitId);
+    if (!habit) return;
+    document.getElementById('fEditId').value = habitId;
+    document.getElementById('fName').value = habit.name;
+    document.getElementById('fCategory').value = habit.category;
+    document.getElementById('fTriggers').value = habit.triggers.join(', ');
+    document.getElementById('fShort').value = habit.consequences.short_term.join('\n');
+    document.getElementById('fLong').value = habit.consequences.long_term.join('\n');
+    document.getElementById('fBenefits').value = habit.benefits_of_resisting.join('\n');
+    document.getElementById('fMsg').value = habit.interruption_message;
+    document.getElementById('formTitle').textContent = 'Edit Habit';
+    document.getElementById('fSaveBtn').textContent = 'Save Changes';
+    document.getElementById('fCancelBtn').style.display = 'block';
+    document.getElementById('fDeleteBtn').style.display = 'block';
+    switchTab('add');
+  }
+
+  function cancelEdit() {
+    document.getElementById('fEditId').value = '';
+    ['fName','fTriggers','fShort','fLong','fBenefits','fMsg'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('formTitle').textContent = 'Add a New Habit';
+    document.getElementById('fSaveBtn').textContent = 'Save Habit';
+    document.getElementById('fCancelBtn').style.display = 'none';
+    document.getElementById('fDeleteBtn').style.display = 'none';
+    switchTab('habits');
+  }
+
+  function deleteHabit() {
+    const id = document.getElementById('fEditId').value;
+    if (!id) return;
+    if (!confirm('Delete this habit? Your tracking history for it will also be removed.')) return;
+    const habits = loadHabits().filter(h => h.id !== id);
+    saveHabits(habits);
+    const tracking = loadTracking().filter(e => e.habit_id !== id);
+    saveTracking(tracking);
+    cancelEdit();
+    renderHabits();
+    updateNavStats();
+    showToast('Habit deleted.', 'loss');
+  }
+
   function saveHabit() {
     const name = document.getElementById('fName').value.trim();
     if (!name) { showToast('Please enter a habit name.', 'loss'); return; }
+    const editId = document.getElementById('fEditId').value;
     const habits = loadHabits();
-    habits.push({
-      id: 'h' + Math.random().toString(36).slice(2, 10),
+    const updated = {
       name,
       category: document.getElementById('fCategory').value,
       triggers: document.getElementById('fTriggers').value.split(',').map(s => s.trim()).filter(Boolean),
@@ -586,11 +643,17 @@
       },
       benefits_of_resisting: document.getElementById('fBenefits').value.split('\n').map(s => s.trim()).filter(Boolean),
       interruption_message: document.getElementById('fMsg').value.trim(),
-    });
+    };
+    if (editId) {
+      const idx = habits.findIndex(h => h.id === editId);
+      if (idx !== -1) habits[idx] = { ...habits[idx], ...updated };
+      showToast('Habit updated.', 'win');
+    } else {
+      habits.push({ id: 'h' + Math.random().toString(36).slice(2, 10), ...updated });
+      showToast('Habit added. Now commit to it.', 'win');
+    }
     saveHabits(habits);
-    ['fName','fTriggers','fShort','fLong','fBenefits','fMsg'].forEach(id => document.getElementById(id).value = '');
-    showToast('Habit added. Now commit to it.', 'win');
-    switchTab('habits');
+    cancelEdit();
     renderHabits();
   }
 
